@@ -29,9 +29,8 @@ app.use(async (req, res, next) => {
   next()
 })
 
-app.use('/api/share',    cors(), require('./routes/share'))
-app.use('/api/invite',   cors(), require('./routes/invite'))
-app.use('/api/comments', cors(), require('./routes/comments'))
+app.use('/api/share',  cors(), require('./routes/share'))
+app.use('/api/invite', cors(), require('./routes/invite'))
 
 app.use(cors({ origin: allowedOrigins }))
 app.use('/api/notes',      require('./routes/notes'))
@@ -45,15 +44,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal server error' })
 })
 
-// Local dev — start HTTP server with Socket.io
 if (require.main === module) {
-  const http = require('http')
-  const httpServer = http.createServer(app)
-  const socketModule = require('./socket')
-  socketModule.init(httpServer)
-
   const PORT = process.env.PORT || 3001
-  httpServer.listen(PORT, () => console.log(`Smart Notepad backend running on port ${PORT}`))
+  app.listen(PORT, () => console.log(`Smart Notepad backend running on port ${PORT}`))
 }
 
 module.exports = app
