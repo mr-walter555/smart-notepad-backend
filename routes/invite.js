@@ -16,11 +16,13 @@ router.post('/', async (req, res) => {
   const share = store.get(shareToken)
   if (!share) return res.status(404).json({ error: 'Note is not shared yet' })
 
-  const BASE_URL = process.env.APP_URL || 'http://localhost:3001'
-  const token = randomUUID()
-  const inviteUrl = `${BASE_URL}/api/invite/${token}`
+  let FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+  if (!FRONTEND_URL.startsWith('http')) FRONTEND_URL = 'https://' + FRONTEND_URL
 
-  // Persist invite — MongoDB first, shareStore as fallback
+  const token = randomUUID()
+  const inviteUrl = `${FRONTEND_URL}/share/${shareToken}`
+
+  // Persist invite for tracking — MongoDB first, shareStore as fallback
   const Invite = getInviteModel()
   if (Invite) {
     await Invite.create({ token, noteId, shareToken, email, permissions })
