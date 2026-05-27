@@ -1,0 +1,63 @@
+const express = require('express')
+const { randomUUID } = require('crypto')
+const router = express.Router()
+const store = require('../services/shareStore')
+const { sendInviteEmail } = require('../services/emailService')
+
+// Lazy-load Invite model only when MongoDB is available
+function getInviteModel() {
+  try { return require('../models/Invite') } catch { return null }
+}
+
+const BASE_URL = process.env.APP_URL || 'http://localhost:3001'
+
+// POST /api/invite — create invite, optionally send email
+router.post('/', async (req, res) => {
+  const { noteId, shareToken, email, permissions = 'view', noteTitle } = req.body
+  if (!noteId || !shareToken) return res.status(400).json({ error: 'noteId and shareToken required' })
+
+  const share = store.get(shareToken)
+  if (!share) return res.status(404).json({ error: 'Note is not shared yet' })
+
+  const token = randomUUID()
+  const inviteUrl = `${BASE_URL}/api/invite/${token}`
+
+  const Invite = getInviteModel()
+  if (Invite) {
+    await Invite.create({ token, noteId, shareToken, email, permissions })
+  }
+
+  let emailResult = { skipped: true }
+  if (email) {
+    emailResult = await sendInviteEmail({ to: email, inviteUrl, noteTitle, permissions }).catch(err => {
+      console.error('[invite] email error:', err.message)
+      return { error: err.message }
+    })
+  }
+
+  res.json({ token, inviteUrl, email: emailResult })
+})
+
+// GET /api/invite/:token — validate and redirect to share page
+router.get('/:token', async (req, res) => {
+  const { token } = req.params
+
+  const Invite = getInviteModel()
+  if (Invite) {
+    const invite = await Invite.findOne({ token }).catch(() => null)
+    if (!invite) return res.status(404).send('<p>Invite not found or expired.</p>')
+    if (invite.status === 'expired' || invite.expiresAt < new Date()) {
+      if (invite.status !== 'expired') await Invite.updateOne({ token }, { status: 'expired' }).catch(() => {})
+      return res.status(410).send('<p>This invite link has expired.</p>')
+    }
+    await Invite.updateOne({ token }, { status: 'accepted' }).catch(() => {})
+    return res.redirect(`${BASE_URL}/api/share/page/${invite.shareToken}`)
+  }
+
+  // No MongoDB: just use shareToken from query param fallback
+  const { shareToken } = req.query
+  if (shareToken) return res.redirect(`${BASE_URL}/api/share/page/${shareToken}`)
+  res.status(404).send('<p>Invite not found.</p>')
+})
+
+module.exports = router
