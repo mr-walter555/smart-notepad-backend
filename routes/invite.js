@@ -1,11 +1,16 @@
 const express = require('express')
-const { randomUUID } = require('crypto')
+const { randomUUID, createHash } = require('crypto')
 const router = express.Router()
 const store = require('../services/shareStore')
 const { sendInviteEmail } = require('../services/emailService')
 
 function getInviteModel() {
   try { return require('../models/Invite') } catch { return null }
+}
+
+function gravatar(email) {
+  const hash = createHash('md5').update((email || '').toLowerCase().trim()).digest('hex')
+  return `https://www.gravatar.com/avatar/${hash}?s=40&d=mp`
 }
 
 // POST /api/invite — create invite, optionally send email
@@ -63,6 +68,28 @@ router.get('/:token', async (req, res) => {
   const invite = store.get(`invite:${token}`)
   if (!invite) return res.status(404).send('<p>Invite not found or expired.</p>')
   return res.redirect(`${FRONTEND_URL}/share/${invite.shareToken}`)
+})
+
+// GET /api/invite/list/:shareToken — all invited users for a note
+router.get('/list/:shareToken', async (req, res) => {
+  const { shareToken } = req.params
+  const Invite = getInviteModel()
+  if (Invite) {
+    const invites = await Invite.find({ shareToken }).sort({ createdAt: -1 }).catch(() => [])
+    return res.json(invites.map(i => ({
+      email:       i.email,
+      permissions: i.permissions,
+      status:      i.status,
+      avatarUrl:   gravatar(i.email),
+      createdAt:   i.createdAt,
+    })))
+  }
+  // Fallback: scan shareStore for invite: keys
+  const all = store.all()
+  const invites = Object.values(all)
+    .filter(v => v.shareToken === shareToken && v.email)
+    .map(v => ({ email: v.email, permissions: v.permissions, status: 'pending', avatarUrl: gravatar(v.email), createdAt: v.createdAt }))
+  res.json(invites)
 })
 
 module.exports = router
