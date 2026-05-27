@@ -1,0 +1,23 @@
+{
+  "name": "smart-notepad-backend",
+  "version": "1.0.0",
+  "description": "Smart Notepad backend API server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "mongoose": "^7.6.3",
+    "openai": "^4.20.1",
+    "resend": "^6.12.4",
+    "socket.io": "^4.8.3",
+    "uuid": "^9.0.0"
+  }
+}

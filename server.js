@@ -1,13 +1,15 @@
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') })
+// Load .env from current dir (Railway) or parent dir (local monorepo dev)
+const path = require('path')
+require('dotenv').config()
+require('dotenv').config({ path: path.join(__dirname, '../.env') })
 
 const http = require('http')
 const express = require('express')
 const cors = require('cors')
-const { BACKEND_PORT } = require('../shared/constants')
 
 const app = express()
 const httpServer = http.createServer(app)
-const PORT = process.env.PORT || BACKEND_PORT
+const PORT = process.env.PORT || 3001
 
 // Socket.io (must init before routes so io is available)
 const socketModule = require('./socket')
