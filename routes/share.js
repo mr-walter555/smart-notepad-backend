@@ -116,6 +116,37 @@ router.post('/:token/comments', async (req, res) => {
   res.json(comment)
 })
 
+// Viewer presence — lightweight ping-based presence for serverless
+const viewers = {} // { [shareToken]: { [userId]: { userId, displayName, color, lastSeen } } }
+const VIEWER_COLORS = ['#e67e22','#2ecc71','#3498db','#9b59b6','#e74c3c','#1abc9c','#f39c12','#e91e63']
+let colorIdx = 0
+
+router.post('/:token/viewers', (req, res) => {
+  const { userId, displayName } = req.body
+  if (!userId) return res.status(400).json({ error: 'userId required' })
+  if (!viewers[req.params.token]) viewers[req.params.token] = {}
+  const existing = viewers[req.params.token][userId]
+  viewers[req.params.token][userId] = {
+    userId,
+    displayName: displayName || 'Viewer',
+    color: existing?.color || VIEWER_COLORS[colorIdx++ % VIEWER_COLORS.length],
+    lastSeen: Date.now(),
+  }
+  // Evict viewers not seen in 15s
+  const cutoff = Date.now() - 15000
+  Object.keys(viewers[req.params.token]).forEach(id => {
+    if (viewers[req.params.token][id].lastSeen < cutoff) delete viewers[req.params.token][id]
+  })
+  res.json({ ok: true })
+})
+
+router.get('/:token/viewers', (req, res) => {
+  const room = viewers[req.params.token] || {}
+  const cutoff = Date.now() - 15000
+  const active = Object.values(room).filter(v => v.lastSeen >= cutoff)
+  res.json(active)
+})
+
 // Public HTML page (legacy — kept for direct backend access)
 router.get('/page/:token', async (req, res) => {
   const Share = getShareModel()

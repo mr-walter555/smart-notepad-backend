@@ -27,7 +27,6 @@ router.post('/', async (req, res) => {
   const token = randomUUID()
   const inviteUrl = `${FRONTEND_URL}/share/${shareToken}`
 
-  // Persist invite for tracking — MongoDB first, shareStore as fallback
   const Invite = getInviteModel()
   if (Invite) {
     await Invite.create({ token, noteId, shareToken, email, permissions })
@@ -44,6 +43,27 @@ router.post('/', async (req, res) => {
   }
 
   res.json({ token, inviteUrl, email: emailResult })
+})
+
+// GET /api/invite/list/:shareToken — MUST be before /:token to avoid being swallowed
+router.get('/list/:shareToken', async (req, res) => {
+  const { shareToken } = req.params
+  const Invite = getInviteModel()
+  if (Invite) {
+    const invites = await Invite.find({ shareToken }).sort({ createdAt: -1 }).catch(() => [])
+    return res.json(invites.map(i => ({
+      email:       i.email,
+      permissions: i.permissions,
+      status:      i.status,
+      avatarUrl:   gravatar(i.email),
+      createdAt:   i.createdAt,
+    })))
+  }
+  const all = store.all()
+  const invites = Object.values(all)
+    .filter(v => v.shareToken === shareToken && v.email)
+    .map(v => ({ email: v.email, permissions: v.permissions, status: 'pending', avatarUrl: gravatar(v.email), createdAt: v.createdAt }))
+  res.json(invites)
 })
 
 // GET /api/invite/:token — validate and redirect to frontend share page
@@ -64,32 +84,9 @@ router.get('/:token', async (req, res) => {
     return res.redirect(`${FRONTEND_URL}/share/${invite.shareToken}`)
   }
 
-  // Fallback: look up from shareStore
   const invite = store.get(`invite:${token}`)
   if (!invite) return res.status(404).send('<p>Invite not found or expired.</p>')
   return res.redirect(`${FRONTEND_URL}/share/${invite.shareToken}`)
-})
-
-// GET /api/invite/list/:shareToken — all invited users for a note
-router.get('/list/:shareToken', async (req, res) => {
-  const { shareToken } = req.params
-  const Invite = getInviteModel()
-  if (Invite) {
-    const invites = await Invite.find({ shareToken }).sort({ createdAt: -1 }).catch(() => [])
-    return res.json(invites.map(i => ({
-      email:       i.email,
-      permissions: i.permissions,
-      status:      i.status,
-      avatarUrl:   gravatar(i.email),
-      createdAt:   i.createdAt,
-    })))
-  }
-  // Fallback: scan shareStore for invite: keys
-  const all = store.all()
-  const invites = Object.values(all)
-    .filter(v => v.shareToken === shareToken && v.email)
-    .map(v => ({ email: v.email, permissions: v.permissions, status: 'pending', avatarUrl: gravatar(v.email), createdAt: v.createdAt }))
-  res.json(invites)
 })
 
 module.exports = router
