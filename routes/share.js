@@ -116,35 +116,57 @@ router.post('/:token/comments', async (req, res) => {
   res.json(comment)
 })
 
-// Viewer presence — lightweight ping-based presence for serverless
-const viewers = {} // { [shareToken]: { [userId]: { userId, displayName, color, lastSeen } } }
+// Viewer presence — stored in MongoDB so it works across serverless instances
 const VIEWER_COLORS = ['#e67e22','#2ecc71','#3498db','#9b59b6','#e74c3c','#1abc9c','#f39c12','#e91e63']
-let colorIdx = 0
 
-router.post('/:token/viewers', (req, res) => {
+function colorForUserId(userId) {
+  let hash = 0
+  for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) >>> 0
+  return VIEWER_COLORS[hash % VIEWER_COLORS.length]
+}
+
+function getViewerModel() {
+  try { return require('../models/ViewerPresence') } catch { return null }
+}
+
+// Fallback in-memory store for local dev without MongoDB
+const localViewers = {}
+
+router.post('/:token/viewers', async (req, res) => {
   const { userId, displayName } = req.body
   if (!userId) return res.status(400).json({ error: 'userId required' })
-  if (!viewers[req.params.token]) viewers[req.params.token] = {}
-  const existing = viewers[req.params.token][userId]
-  viewers[req.params.token][userId] = {
-    userId,
-    displayName: displayName || 'Viewer',
-    color: existing?.color || VIEWER_COLORS[colorIdx++ % VIEWER_COLORS.length],
-    lastSeen: Date.now(),
+
+  const color = colorForUserId(userId)
+  const token = req.params.token
+  const Viewer = getViewerModel()
+
+  if (Viewer) {
+    await Viewer.findOneAndUpdate(
+      { shareToken: token, userId },
+      { displayName: displayName || 'Viewer', color, lastSeen: new Date() },
+      { upsert: true, new: true }
+    ).catch(() => {})
+  } else {
+    if (!localViewers[token]) localViewers[token] = {}
+    localViewers[token][userId] = { userId, displayName: displayName || 'Viewer', color, lastSeen: Date.now() }
   }
-  // Evict viewers not seen in 15s
-  const cutoff = Date.now() - 15000
-  Object.keys(viewers[req.params.token]).forEach(id => {
-    if (viewers[req.params.token][id].lastSeen < cutoff) delete viewers[req.params.token][id]
-  })
+
   res.json({ ok: true })
 })
 
-router.get('/:token/viewers', (req, res) => {
-  const room = viewers[req.params.token] || {}
+router.get('/:token/viewers', async (req, res) => {
+  const token = req.params.token
+  const Viewer = getViewerModel()
+
+  if (Viewer) {
+    const cutoff = new Date(Date.now() - 15000)
+    const active = await Viewer.find({ shareToken: token, lastSeen: { $gte: cutoff } }).catch(() => [])
+    return res.json(active.map(v => ({ userId: v.userId, displayName: v.displayName, color: v.color })))
+  }
+
+  const room = localViewers[token] || {}
   const cutoff = Date.now() - 15000
-  const active = Object.values(room).filter(v => v.lastSeen >= cutoff)
-  res.json(active)
+  res.json(Object.values(room).filter(v => v.lastSeen >= cutoff))
 })
 
 // Public HTML page (legacy — kept for direct backend access)

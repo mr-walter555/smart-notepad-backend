@@ -8,6 +8,10 @@ function getInviteModel() {
   try { return require('../models/Invite') } catch { return null }
 }
 
+function getShareModel() {
+  try { return require('../models/Share') } catch { return null }
+}
+
 function gravatar(email) {
   const hash = createHash('md5').update((email || '').toLowerCase().trim()).digest('hex')
   return `https://www.gravatar.com/avatar/${hash}?s=40&d=mp`
@@ -18,8 +22,14 @@ router.post('/', async (req, res) => {
   const { noteId, shareToken, email, permissions = 'view', noteTitle } = req.body
   if (!noteId || !shareToken) return res.status(400).json({ error: 'noteId and shareToken required' })
 
-  const share = store.get(shareToken)
-  if (!share) return res.status(404).json({ error: 'Note is not shared yet' })
+  // Check MongoDB first (Vercel serverless: file store is empty on cold start)
+  const Share = getShareModel()
+  let shareExists = false
+  if (Share) {
+    shareExists = !!(await Share.findOne({ token: shareToken }).catch(() => null))
+  }
+  if (!shareExists) shareExists = !!store.get(shareToken)
+  if (!shareExists) return res.status(404).json({ error: 'Note is not shared yet' })
 
   let FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
   if (!FRONTEND_URL.startsWith('http')) FRONTEND_URL = 'https://' + FRONTEND_URL
