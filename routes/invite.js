@@ -42,7 +42,8 @@ router.post('/', async (req, res) => {
 // GET /api/invite/:token — validate and redirect to frontend share page
 router.get('/:token', async (req, res) => {
   const { token } = req.params
-  const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+  let FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+  if (!FRONTEND_URL.startsWith('http')) FRONTEND_URL = 'https://' + FRONTEND_URL
 
   const Invite = getInviteModel()
   if (Invite) {
