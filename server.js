@@ -1,7 +1,5 @@
-// Load .env from current dir (Railway) or parent dir (local monorepo dev)
 const path = require('path')
-require('dotenv').config()
-require('dotenv').config({ path: path.join(__dirname, '../.env') })
+require('dotenv').config({ path: path.join(__dirname, '.env') })
 
 const http = require('http')
 const express = require('express')
