@@ -29,8 +29,9 @@ app.use(async (req, res, next) => {
   next()
 })
 
-app.use('/api/share',  cors(), require('./routes/share'))
-app.use('/api/invite', cors(), require('./routes/invite'))
+app.use('/api/share',    cors(), require('./routes/share'))
+app.use('/api/invite',   cors(), require('./routes/invite'))
+app.use('/api/calendar', cors(), require('./routes/calendar'))
 
 app.use(cors({ origin: allowedOrigins }))
 app.use('/api/notes',      require('./routes/notes'))

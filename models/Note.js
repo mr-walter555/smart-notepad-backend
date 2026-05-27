@@ -10,7 +10,9 @@ const noteSchema = new mongoose.Schema({
   favorite: { type: Boolean, default: false },
   archived: { type: Boolean, default: false },
   trashed: { type: Boolean, default: false },
-  workspaceId: { type: String, default: null },
+  workspaceId:      { type: String, default: null },
+  calendarEventId:  { type: String, default: null },
+  scheduledAt:      { type: Date,   default: null },
 }, { timestamps: true })
 
 module.exports = mongoose.model('Note', noteSchema)
