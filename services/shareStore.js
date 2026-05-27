@@ -2,6 +2,7 @@ const fs = require('fs')
 const path = require('path')
 
 const FILE = path.join(__dirname, '../data/shares.json')
+const DIR  = path.dirname(FILE)
 
 let cache = null
 
@@ -16,6 +17,7 @@ function load() {
 }
 
 function save() {
+  if (!fs.existsSync(DIR)) fs.mkdirSync(DIR, { recursive: true })
   fs.writeFileSync(FILE, JSON.stringify(cache, null, 2))
 }
 
