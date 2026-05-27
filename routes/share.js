@@ -53,6 +53,13 @@ router.get('/:token/info', (req, res) => {
   res.json({ token: share.token, title: share.title, createdAt: share.createdAt })
 })
 
+// Full share data for frontend share page
+router.get('/:token/content', (req, res) => {
+  const share = store.get(req.params.token)
+  if (!share) return res.status(404).json({ error: 'not found' })
+  res.json({ token: share.token, title: share.title, content: share.content, updatedAt: share.updatedAt })
+})
+
 // List comments
 router.get('/:token/comments', (req, res) => {
   const share = store.get(req.params.token)

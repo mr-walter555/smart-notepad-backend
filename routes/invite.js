@@ -10,6 +10,7 @@ function getInviteModel() {
 }
 
 const BASE_URL = process.env.APP_URL || 'http://localhost:3001'
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 
 // POST /api/invite — create invite, optionally send email
 router.post('/', async (req, res) => {
@@ -51,12 +52,12 @@ router.get('/:token', async (req, res) => {
       return res.status(410).send('<p>This invite link has expired.</p>')
     }
     await Invite.updateOne({ token }, { status: 'accepted' }).catch(() => {})
-    return res.redirect(`${BASE_URL}/api/share/page/${invite.shareToken}`)
+    return res.redirect(`${FRONTEND_URL}/share/${invite.shareToken}`)
   }
 
   // No MongoDB: just use shareToken from query param fallback
   const { shareToken } = req.query
-  if (shareToken) return res.redirect(`${BASE_URL}/api/share/page/${shareToken}`)
+  if (shareToken) return res.redirect(`${FRONTEND_URL}/share/${shareToken}`)
   res.status(404).send('<p>Invite not found.</p>')
 })
 
